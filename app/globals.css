@@ -89,3 +89,32 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Voice Express: a train rides its line, left to right, then loops. */
+@keyframes ride {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 3rem);
+    opacity: 0;
+  }
+}
+.voice-train {
+  animation-name: ride;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-train {
+    animation: none;
+    left: calc(50% - 1.5rem);
+  }
+}

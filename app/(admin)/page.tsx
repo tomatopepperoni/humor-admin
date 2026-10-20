@@ -6,6 +6,7 @@ import { hourLabel, WEEKDAYS } from "@/lib/time";
 import { DailyColumns, Funnel, Heatmap, Kpi, pct, ScorePill, signed, SplitRows } from "@/app/components/charts";
 import { VibeTag, vibeLabel } from "@/app/components/VibeTag";
 import { Avatar } from "@/app/components/Avatar";
+import { VoiceExpress } from "@/app/components/VoiceExpress";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,13 @@ export default async function Dashboard() {
         <Kpi label="AI captions" value={s.totals.captions.toLocaleString()} sub={`${s.totals.votesPerCaption.toFixed(1)} votes per caption`} />
         <Kpi label="Votes cast" value={s.totals.votes.toLocaleString()} sub={`${pct(s.totals.upRate)} are upvotes`} />
       </div>
+
+      <Panel
+        title="Voice Express"
+        sub="Every caption voice runs its own line. The bigger its upvote share, the faster its train. Hover a track for the counts."
+      >
+        <VoiceExpress rows={s.byVibe} />
+      </Panel>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel title="Ridership, last 30 days" sub="Small multiples, each on its own scale." className="lg:col-span-2">
