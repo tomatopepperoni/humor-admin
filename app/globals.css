@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+ * Captioned NYC — Control Center. Same subway-signage language as the main app
+ * (black sign bands, line bullets, MetroCard yellow), tuned for dense tables.
+ */
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@theme {
+  --color-sign: #000000;
+  --color-paper: #eceeec;
+  --color-card: #ffffff;
+  --color-ink: #16181a;
+  --color-muted: #5b6166;
+  --color-rule: #d3d7d5;
+  --color-metro: #fccc0a;
+  --color-metro-deep: #e3b600;
+  --color-go: #00933c; /* upvote */
+  --color-hold: #6d6e71; /* downvote */
+  --color-stop: #c4161c; /* destructive */
+  --color-line1: #ee352e;
+  --color-lineA: #0039a6;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-rule);
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-lineA);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply relative rounded-xl border bg-card;
+  }
+  .panel-title {
+    @apply text-[15px] font-semibold tracking-tight;
+  }
+  .panel-sub {
+    @apply mt-0.5 text-[13px] text-muted;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50;
+  }
+  /* use as "btn btn-primary" etc. */
+  .btn-primary {
+    @apply bg-metro text-ink hover:bg-metro-deep;
+  }
+  .btn-ghost {
+    @apply border bg-card text-ink hover:bg-paper;
+  }
+  .btn-danger {
+    @apply bg-stop text-white hover:bg-[#a31217];
+  }
+  .field {
+    @apply w-full rounded-lg border bg-card px-3 py-2 text-sm outline-none focus:border-ink;
+  }
+  .label {
+    @apply mb-1 block text-[13px] font-medium text-muted;
+  }
+  .tbl {
+    @apply w-full text-left text-sm;
+  }
+  .tbl th {
+    @apply border-b px-3 py-2 text-[12px] font-medium uppercase tracking-wide text-muted;
+  }
+  .tbl td {
+    @apply border-b px-3 py-2.5 align-top;
+  }
+  .tbl tr:last-child td {
+    @apply border-b-0;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
