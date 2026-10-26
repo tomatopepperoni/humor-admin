@@ -1,7 +1,9 @@
 import { VIBES, type Vibe } from "@/lib/vibes";
 
 /**
- * Same prompt shape as the main app (humor-hello-world/app/actions/captions.ts),
+ * The prompt that was hard-coded through week 6. Since week 7 the real prompt
+ * is built from prompt_chain_steps (lib/prompt-chain.ts); this is the fallback
+ * when the database has no chain for a voice. Same file in both apps,
  * so admin-generated captions are comparable with the rest in the stats.
  * Keep the "Vibe: <label>. …" line: vibeFromPrompt() reads it back.
  */

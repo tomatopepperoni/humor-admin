@@ -9,7 +9,7 @@ import { VIBES } from "@/lib/vibes";
 import { Avatar } from "@/app/components/Avatar";
 import { ScorePill } from "@/app/components/charts";
 import { VibeTag } from "@/app/components/VibeTag";
-import { deleteCaption } from "../actions";
+import { deleteCaption, promoteToExample } from "../actions";
 import EditCaptionForm from "./EditCaptionForm";
 
 export const metadata: Metadata = { title: "Caption" };
@@ -32,6 +32,12 @@ export default async function CaptionPage({ params, searchParams }: PageProps<"/
     supabase.rpc("admin_caption_prompt", { caption_id: id }),
     supabase.from("captions").select("id, text, position").eq("post_id", caption.post_id).neq("id", id).order("position"),
   ]);
+  // Week 7 columns/tables, read separately so this page still works before the SQL runs.
+  const [{ data: runRow }, { data: exampleRow }] = await Promise.all([
+    supabase.from("captions").select("generation_request_id").eq("id", id).maybeSingle<{ generation_request_id: string | null }>(),
+    supabase.from("generation_examples").select("id").eq("source_caption_id", id).maybeSingle<{ id: number }>(),
+  ]);
+  const requestId = runRow?.generation_request_id ?? null;
   const votes = (votesData ?? []) as Vote[];
   const siblings = (siblingsData ?? []) as { id: string; text: string }[];
 
@@ -53,6 +59,20 @@ export default async function CaptionPage({ params, searchParams }: PageProps<"/
       {sp.error === "delete" && (
         <p role="alert" className="rounded-lg border border-stop/30 bg-stop/10 px-4 py-2.5 text-sm">
           Couldn&apos;t delete this caption. Check that your account is still a superadmin.
+        </p>
+      )}
+
+      {sp.msg === "promoted" && (
+        <p role="status" className="rounded-lg border border-go/30 bg-go/10 px-4 py-2.5 text-sm">
+          Added to the few-shot examples. The caption app now shows it to Gemini as a tone reference for this voice.{" "}
+          <Link href="/examples" className="font-medium underline">
+            See examples
+          </Link>
+        </p>
+      )}
+      {sp.error === "promote" && (
+        <p role="alert" className="rounded-lg border border-stop/30 bg-stop/10 px-4 py-2.5 text-sm">
+          Couldn&apos;t add this caption as an example. Has the week 7 SQL been run?
         </p>
       )}
 
@@ -137,6 +157,32 @@ export default async function CaptionPage({ params, searchParams }: PageProps<"/
               </Link>
             </section>
           )}
+
+          <section className="panel p-5">
+            <h2 className="panel-title">Generation</h2>
+            <p className="panel-sub">
+              {requestId
+                ? "The run that wrote this caption: prompt, every model call, latency and tokens."
+                : "No run logged: written by hand, or before week 7 logging."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {requestId && (
+                <Link href={`/requests/${requestId}`} className="btn btn-ghost">
+                  Open the run →
+                </Link>
+              )}
+              {exampleRow ? (
+                <Link href={`/examples?edit=${exampleRow.id}`} className="btn btn-ghost">
+                  ✓ Few-shot example
+                </Link>
+              ) : (
+                <form action={promoteToExample}>
+                  <input type="hidden" name="id" value={caption.id} />
+                  <button className="btn btn-ghost">Use as few-shot example</button>
+                </form>
+              )}
+            </div>
+          </section>
 
           <section className="panel p-5">
             <h2 className="panel-title">Votes</h2>

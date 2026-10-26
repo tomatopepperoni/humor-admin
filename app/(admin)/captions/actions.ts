@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { tidyCaption } from "@/lib/caption-text";
-import { GeminiError, generateText, parseCaptionList } from "@/lib/gemini";
-import { buildPrompt } from "@/lib/prompt";
+import { randomUUID } from "node:crypto";
+import { GeminiError, generateText, parseCaptionList, type Attempt } from "@/lib/gemini";
+import { prepareGeneration } from "@/lib/prompt-chain";
+import { logGeneration } from "@/lib/generation-log";
 import { isVibe, type Vibe } from "@/lib/vibes";
 
 export type FormState = { error?: string; ok?: string } | null;
@@ -94,7 +96,9 @@ export async function generateCaptions(_: FormState, fd: FormData): Promise<Form
   }
 
   const { next, existing } = await nextPosition(supabase, post.id);
-  const prompt = buildPrompt({
+  // Same chain, terms, examples and models as the caption app (week 7).
+  const startedAt = new Date();
+  const gen = await prepareGeneration(supabase, {
     vibe: vibe as Vibe,
     count,
     context: post.context,
@@ -102,16 +106,43 @@ export async function generateCaptions(_: FormState, fd: FormData): Promise<Form
     theme: post.theme,
     avoid: existing,
   });
+  const prompt = gen.prompt;
 
-  let captions: string[];
-  let model: string;
+  let captions: string[] = [];
+  let model: string | null = null;
+  let attempts: Attempt[] = [];
+  let failure: string | null = null;
   try {
-    const out = await generateText(prompt, image, (t) => parseCaptionList(t, count));
+    const out = await generateText(prompt, image, (t) => parseCaptionList(t, count), gen.models);
     captions = out.value;
     model = out.model;
+    attempts = out.attempts;
   } catch (err) {
-    return { error: err instanceof GeminiError ? err.message : "Gemini is unavailable right now." };
+    failure = err instanceof GeminiError ? err.message : "Gemini is unavailable right now.";
+    attempts = err instanceof GeminiError ? err.attempts : [];
   }
+
+  const requestId = randomUUID();
+  const logged = await logGeneration(
+    supabase,
+    {
+      id: requestId,
+      kind: "admin",
+      app: "admin",
+      vibe,
+      postId: post.id,
+      status: failure ? "failed" : "success",
+      prompt,
+      hasImage: !!image,
+      model,
+      captionCount: captions.length,
+      error: failure,
+      startedAt,
+      configSource: gen.configSource,
+    },
+    attempts
+  );
+  if (failure || !model) return { error: failure ?? "Gemini is unavailable right now." };
 
   const { error } = await supabase.from("captions").insert(
     captions.map((text, i) => ({
@@ -122,11 +153,47 @@ export async function generateCaptions(_: FormState, fd: FormData): Promise<Form
       model,
       prompt,
       position: next + i,
+      ...(logged ? { generation_request_id: requestId } : {}),
     }))
   );
   if (error) return { error: error.message };
   done(post.id);
   return null;
+}
+
+/**
+ * Week 7: turn a caption into a few-shot example (generation_examples), so the
+ * captions the campus votes up shape the next ones.
+ */
+export async function promoteToExample(fd: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = str(fd, "id");
+  if (!UUID.test(id)) redirect("/captions?error=unknown");
+
+  const { data: caption } = await supabase
+    .from("captions")
+    .select("id, text, vibe, post_id")
+    .eq("id", id)
+    .maybeSingle<{ id: string; text: string; vibe: string | null; post_id: string }>();
+  if (!caption) redirect("/captions?error=unknown");
+  const post = await loadPost(supabase, caption.post_id);
+  const vibeKey = caption.vibe ?? post?.vibe ?? null;
+  const { data: chain } = vibeKey
+    ? await supabase.from("prompt_chains").select("id").eq("slug", vibeKey).maybeSingle<{ id: number }>()
+    : { data: null };
+
+  const { error } = await supabase.from("generation_examples").insert({
+    chain_id: chain?.id ?? null,
+    moment: (post?.context || post?.theme || "A photo from the feed").slice(0, 200),
+    caption: caption.text,
+    source: "top-voted",
+    source_caption_id: caption.id,
+  });
+  if (error && error.code !== "23505") redirect(`/captions/${id}?error=promote`);
+
+  revalidatePath("/examples");
+  revalidatePath(`/captions/${id}`);
+  redirect(`/captions/${id}?msg=promoted`);
 }
 
 /** UPDATE: text, voice, model label, position. The prompt and post never change. */

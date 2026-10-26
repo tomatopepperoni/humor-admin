@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { displayName } from "@/lib/data";
 import { Avatar } from "@/app/components/Avatar";
 import { LineBullet } from "@/app/components/LineBullet";
-import AdminNav from "./AdminNav";
+import AdminNav, { SideNav } from "./AdminNav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireAdmin();
@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       <header className="bg-sign text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="mx-auto max-w-[90rem] px-4 sm:px-6">
           <div className="flex items-center justify-between gap-4 py-3">
             <Link href="/" className="flex items-center gap-2.5">
               <LineBullet letter="S" bg="#808183" size={26} />
@@ -36,11 +36,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </form>
             </div>
           </div>
-          <div aria-hidden="true" className="h-px bg-white/25" />
+          <div aria-hidden="true" className="h-px bg-white/25 lg:hidden" />
           <AdminNav />
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <div className="mx-auto flex w-full max-w-[90rem] flex-1 gap-8 px-4 py-6 sm:px-6 sm:py-8">
+        <aside className="hidden w-52 shrink-0 lg:block">
+          <SideNav />
+        </aside>
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
     </>
   );
 }

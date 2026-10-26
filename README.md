@@ -1,4 +1,4 @@
-# Captioned NYC — Control Center (Week 6 admin area)
+# Captioned NYC — Control Center (admin area, weeks 6–7)
 
 Admin area for the [Captioned NYC](https://humor-hello-world-ten.vercel.app) caption-rating app
 (repo `humor-hello-world`). Same Supabase project (`humor-joke`), separate Next.js app and Vercel project.
@@ -13,6 +13,41 @@ Admin area for the [Captioned NYC](https://humor-hello-world-ten.vercel.app) cap
 | `/captions/new` | Generate 1–3 new captions with Gemini (same prompt as the main app, avoids existing ones), or write one by hand | **CREATE** |
 | `/captions/[id]` | Edit text / voice / model / position, see the stored prompt, see who voted, delete | **UPDATE / DELETE** |
 | `/votes` | Every vote with voter, caption, voice; filter up/down | **READ** votes |
+
+## Week 7 – More observability
+
+The admin area now runs the caption pipeline, not just the content. One idea ties the pages together:
+**the campus's votes feed back into the next captions, and every generation is traceable.**
+
+| Route | What | Assignment item |
+|---|---|---|
+| `/users` | (week 6) | read users |
+| `/chains`, `/chains/[id]` | One chain per subway voice; its ordered steps, which are conditional, and a live preview of the prompt Gemini gets today | read prompt chains, read prompt chain steps |
+| `/mix` | Which voices the picker offers + their “Surprise me” weight, next to what people actually picked | read/update prompt chain mix |
+| `/terms` | NYC / subway / campus vocabulary put into every prompt | CRUD terms |
+| `/media` | Every Gemini-written caption as the meme card people see, filter by voice/model, linked to its run | read/view AI generated media |
+| `/requests`, `/requests/[id]` | One row per caption run (either app): status, duration, model that answered, calls made. Summary: success rate, p50/p95 duration, retry rate, tokens, per-model behaviour, why calls failed. Detail: the exact prompt, a timeline of every model call with raw output, the captions it produced | read generation requests |
+| `/examples` | Few-shot examples per voice. **“Use as few-shot example”** on any caption page promotes a top-voted caption | CRUD AI generation examples |
+| `/models` | Models in fallback order, temperature, max tokens, with each model's last-7-day success rate and latency | CRUD llm models |
+| `/providers` | Who serves the models (only the env-var name of the key is stored) | CRUD llm providers |
+| `/responses` | Every single model call: outcome, HTTP status, latency, tokens (incl. thinking), finish reason | read llm responses |
+| `/domains`, `/whitelist` | Who may sign up to Captioned NYC, with a live “gate on/off” status | CRUD allowed signup domains, CRUD whitelisted e-mails |
+| `/images`, `/images/[id]` | Upload a photo (resized in the browser, stored in the `photos` bucket), edit its text, replace the file, delete it with its captions | CRUD images incl. upload |
+
+These settings are not just stored: the caption app reads them on every run (through
+`public.generation_config()`), so changing a term, an example, the model order or the mix changes the next
+captions without a deploy. With nothing configured it falls back to the week-6 prompt, which the database
+chain reproduces word for word.
+
+Observability is written by both apps through `public.log_generation()`: `generation_requests` (one per run,
+including failed ones) and `llm_responses` (one per model call, including the retries and fallbacks). Captions
+point at their run via `captions.generation_request_id`. Runs from before week 7 are backfilled from the saved
+captions (marked “Before week 7”, without timing).
+
+**Setup:** run `supabase/week7_observability.sql` (in the `humor-hello-world` repo) in the Supabase SQL editor
+after `week6_admin.sql`. It's safe to re-run, it seeds the tables with the values the app used to hard-code,
+and every new table has RLS: superadmins only, read-only where the assignment says “read”. Normal users can't
+read any of it; the caption app only goes through the three security-definer functions.
 
 ## Security: three locks
 
@@ -37,7 +72,8 @@ Sign in to the main app once first so your profile row exists.
 
 ## Setup
 
-1. Run `supabase/week6_admin.sql` in the Supabase SQL editor, then the bootstrap `update` above.
+1. Run `supabase/week6_admin.sql` in the Supabase SQL editor, then the bootstrap `update` above, then
+   `supabase/week7_observability.sql` from the `humor-hello-world` repo.
 2. Supabase → Authentication → URL Configuration → add redirect URLs
    `http://localhost:3000/**` and `https://*-genlarry.vercel.app/**` (or the exact Vercel domains).
 3. Env vars (`.env.local` and Vercel → Settings → Environment Variables):
